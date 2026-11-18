@@ -209,8 +209,8 @@ function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.ge
   document.getElementById('t1').setAttribute('aria-selected',n==1); document.getElementById('t2').setAttribute('aria-selected',n==2); draw();}
 document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2);
 const COLS=[['name','',0],['evL','Latest day',1],['evT','Total',0],['pvaT','Applications',1],['prT','Returned',0],['voted','Share of<br>expected votes',1],
-  ['vecEarly','VEC centres in district',1],['ourEarly','Our original',0],['revEarly','Revised',0],['prog','Cast so far',0],['revShare','Share of<br>all votes',0],
-  ['vecOrd','VEC original',1],['ourOrd','Our original',0],['revOrd','Revised',0]];
+  ['revEarly','Revised',1],['prog','Cast so far',0],['revShare','Share of<br>all votes',0],
+  ['revOrd','Revised',1]];
 function cell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='voted'||k=='revShare')return pc(v);
   if(k=='prog')return pc(v)+`<span class="meter"><i style="width:${Math.min(100,100*v)}%"></i></span>`; return f(v);}
 function rowHtml(u,cls){return `<tr class="${cls}" data-n="${u.name}">`+COLS.map(c=>`<td class="${c[2]?'g':''} ${c[0]=='revEarly'||c[0]=='revOrd'?'rev':''}">${cell(u,c[0])}</td>`).join('')+'</tr>';}
@@ -231,7 +231,7 @@ function table(){
   let rows=U.filter(u=>u.level==mode&&(scope=='Victoria'||u.region==scope)&&(!q||u.name.toLowerCase().includes(q)));
   rows.sort((a,b)=>sortK=='name'?sortD*a.name.localeCompare(b.name):sortD*(((a[sortK]??-1)-(b[sortK]??-1))));
   const top=U.find(u=>u.name==scope);
-  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="2">Postal votes</th><th class="g">Already voted</th><th class="g" colspan="5">Early vote estimate</th><th class="g" colspan="3">Election-day ordinary votes</th></tr><tr>`+
+  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="2">Postal votes</th><th class="g">Already voted</th><th class="g" colspan="3">Early vote estimate</th><th class="g">Election-day<br>ordinary votes</th></tr><tr>`+
     COLS.map(c=>`<th data-k="${c[0]}" class="${c[2]?'g':''}">${c[0]=='name'?(mode=='district'?'District':'Region'):c[1]}${sortK==c[0]?(sortD>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>';
   h+=rowHtml(top,'row agg'+(open==top.name?' open':'')); if(open==top.name)h+=detail(top);
   rows.forEach(u=>{h+=rowHtml(u,'row'+(open==u.name?' open':'')); if(open==u.name)h+=detail(u);});
