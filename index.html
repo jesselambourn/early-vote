@@ -132,7 +132,7 @@ function tiles(u){
   const t=[['Early votes so far',f(u.evT),`${f(u.evL)} on ${dl(M.dates[last])}`],
    ['Postal votes returned',f(u.prT),`${f(u.pvaT)} postal vote applications`],
    ['Already voted',pc(u.voted),`of ${f(u.T)} expected votes (${pc((u.evT+u.prT)/u.enrol)} of enrolment)`],
-   ['Early vote estimate',f(u.revEarly),`revised. Original: VEC ${f(u.vecEarly)}${u.ourEarly!=null?', ours '+f(u.ourEarly):''}`],
+   ['In-person early vote estimate',f(u.revEarly),`revised. Original: VEC ${f(u.vecEarly)}${u.ourEarly!=null?', ours '+f(u.ourEarly):''}`],
    ['Election-day ordinary votes',f(u.revOrd),`revised. Original: VEC ${f(u.vecOrd)}${u.ourOrd!=null?', ours '+f(u.ourOrd):''}`]];
   document.getElementById('tiles').innerHTML=t.map(x=>`<div class="tile"><div class="l">${x[0]}: ${u.name}</div><div class="v">${x[1]}</div><div class="n">${x[2]}</div></div>`).join('');
 }
@@ -208,12 +208,12 @@ let tab=1;
 function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.getElementById('p1b').hidden=n!=1; document.getElementById('p2').hidden=n!=2;
   document.getElementById('t1').setAttribute('aria-selected',n==1); document.getElementById('t2').setAttribute('aria-selected',n==2); draw();}
 document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2);
-const COLS=[['name','',0],['evL','Latest day',1],['evT','Total',0],['pvaT','Applications',1],['prT','Returned',0],['T','Expected<br>total votes',1],['voted','Share<br>already voted',0],
+const COLS=[['name','',0],['evL','Latest day',1],['evT','Total',0],['pvaT','Applications',1],['prT','Returned',0],['postalRev','Revised<br>estimate',0],['T','Expected<br>total votes',1],['voted','Share<br>already voted',0],
   ['revEarly','Revised',1],['prog','Cast so far',0],['revShare','Share of<br>all votes',0],
   ['revOrd','Revised',1]];
 function cell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='voted'||k=='revShare')return pc(v);
   if(k=='prog')return pc(v)+`<span class="meter"><i style="width:${Math.min(100,100*v)}%"></i></span>`; return f(v);}
-function rowHtml(u,cls){return `<tr class="${cls}" data-n="${u.name}">`+COLS.map(c=>`<td class="${c[2]?'g':''} ${c[0]=='revEarly'||c[0]=='revOrd'?'rev':''}">${cell(u,c[0])}</td>`).join('')+'</tr>';}
+function rowHtml(u,cls){return `<tr class="${cls}" data-n="${u.name}">`+COLS.map(c=>`<td class="${c[2]?'g':''} ${c[0]=='revEarly'||c[0]=='revOrd'||c[0]=='postalRev'?'rev':''}">${cell(u,c[0])}</td>`).join('')+'</tr>';}
 function detail(u){
   let a='<table><thead><tr><th>Day</th><th>Early votes</th><th>Running total</th><th>Postal returned</th><th>Running total</th><th>Postal applications</th><th>Running total</th></tr></thead><tbody>',e=0,p=0,v=0;
   M.dates.forEach((d,i)=>{e+=u.ev[i];p+=u.pr[i];v+=u.pva[i]-u.can[i];a+=`<tr><td>${dl(d)}</td><td>${f(u.ev[i])}</td><td>${f(e)}</td><td>${f(u.pr[i])}</td><td>${f(p)}</td><td>${f(u.pva[i]-u.can[i])}</td><td>${f(v)}</td></tr>`;});
@@ -231,7 +231,7 @@ function table(){
   let rows=U.filter(u=>u.level==mode&&(scope=='Victoria'||u.region==scope)&&(!q||u.name.toLowerCase().includes(q)));
   rows.sort((a,b)=>sortK=='name'?sortD*a.name.localeCompare(b.name):sortD*(((a[sortK]??-1)-(b[sortK]??-1))));
   const top=U.find(u=>u.name==scope);
-  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="2">Postal votes</th><th class="g" colspan="2">Total votes</th><th class="g" colspan="3">Early vote estimate</th><th class="g">Election-day<br>ordinary votes</th></tr><tr>`+
+  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="3">Postal votes</th><th class="g" colspan="2">Total votes</th><th class="g" colspan="3">In-person early vote estimate</th><th class="g">Election-day<br>ordinary votes</th></tr><tr>`+
     COLS.map(c=>`<th data-k="${c[0]}" class="${c[2]?'g':''}">${c[0]=='name'?(mode=='district'?'District':'Region'):c[1]}${sortK==c[0]?(sortD>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>';
   h+=rowHtml(top,'row agg'+(open==top.name?' open':'')); if(open==top.name)h+=detail(top);
   rows.forEach(u=>{h+=rowHtml(u,'row'+(open==u.name?' open':'')); if(open==u.name)h+=detail(u);});
