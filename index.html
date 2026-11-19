@@ -71,6 +71,7 @@ svg text { fill:var(--muted); font-size:11px } svg .val { fill:var(--ink); font-
 <main>
   <div class="controls">
     <label>Area <select id="scope"></select></label>
+    <label>District <select id="dist"></select></label>
     <button class="tg" id="bR" aria-pressed="false">Regions</button>
     <button class="tg" id="bD" aria-pressed="true">Districts</button>
     <input type="search" id="q" placeholder="Find a district">
@@ -242,7 +243,12 @@ function table(){
   document.getElementById('tbTitle').textContent=(mode=='district'?'Districts':'Regions')+': '+(scope=='Victoria'?'all of Victoria':scope);
 }
 const cur=()=>U.find(x=>x.name==(open||scope));
-function draw(){tiles(cur()); if(tab==1){lineChart(cur()); table();} else {byDay(cur()); chart(cur());}}
+document.getElementById('dist').onchange=e=>{open=e.target.value||null; if(open&&mode=='region'){mode='district';btn();} draw();};
+function fillDist(){const ds=document.getElementById('dist'); ds.innerHTML='';
+  ds.add(new Option(scope=='Victoria'?'All districts':'All of '+scope,''));
+  U.filter(u=>u.level=='district'&&(scope=='Victoria'||u.region==scope)).sort((a,b)=>a.name.localeCompare(b.name)).forEach(u=>ds.add(new Option(u.name,u.name)));
+  ds.value=(U.find(u=>u.name==open)||{}).level=='district'?open:'';}
+function draw(){fillDist(); tiles(cur()); if(tab==1){lineChart(cur()); table();} else {byDay(cur()); chart(cur());}}
 function btn(){document.getElementById('bR').setAttribute('aria-pressed',mode=='region');document.getElementById('bD').setAttribute('aria-pressed',mode=='district');}
 sel.onchange=()=>{scope=sel.value; open=null; if(scope!='Victoria'&&mode=='region'){mode='district';btn();} draw();};
 document.getElementById('bR').onclick=()=>{mode='region';scope='Victoria';sel.value=scope;open=null;btn();draw();};
