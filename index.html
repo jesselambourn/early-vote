@@ -91,8 +91,7 @@ svg text { fill:var(--muted); font-size:11px } svg .val { fill:var(--ink); font-
     <h2 id="byTitle"></h2>
     <p class="sub" id="bySub"></p>
     <div class="legend" id="byLeg"></div>
-    <div class="scroll"><div id="byday"></div></div>
-    <div class="scroll" style="margin-top:10px"><table class="mini" id="byTab"></table></div>
+    <div class="scroll"><div id="byday"></div><table class="mini" id="byTab" style="margin-top:6px;table-layout:fixed"></table></div>
   </div>
   <div class="card">
     <h2 id="chTitle"></h2>
@@ -190,11 +189,11 @@ function lineChart(u){
   document.getElementById('lnLeg').innerHTML=A.map(a=>`<span><i class="ln" style="border-color:${a.c}"></i>${a.n}</span>`).join('');
 }
 function byDay(u){
-  const S=series(u), A=sers(u,S,'d'), el=document.getElementById('byday'), W=Math.max(700,Math.min(1100,el.parentNode.clientWidth||800)), H=300, L=58, B=44, T=14;
-  const mx=Math.max(...A.flatMap(a=>a.v.filter(v=>v!=null)))*1.08||1, gw=(W-L-10)/NS, bw=Math.min(22,(gw-12)/A.length-2), y=v=>T+(H-T-B)*(1-v/mx);
+  const S=series(u), A=sers(u,S,'d'), el=document.getElementById('byday'), W=Math.max(1000,Math.min(1150,el.parentNode.clientWidth||1000)), H=300, L=124, Rm=84, B=44, T=14;
+  const mx=Math.max(...A.flatMap(a=>a.v.filter(v=>v!=null)))*1.08||1, gw=(W-L-Rm)/NS, bw=Math.min(22,(gw-12)/A.length-2), y=v=>T+(H-T-B)*(1-v/mx);
   const step=Math.pow(10,Math.floor(Math.log10(mx/3))), st=[1,2,5,10].map(k=>k*step).find(z=>mx/z<=5);
   let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block" role="img" aria-label="Early votes taken each day">`;
-  for(let v=0;v<=mx;v+=st) s+=`<line x1="${L}" x2="${W-10}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="${v?0.6:1}"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${f(v)}</text>`;
+  for(let v=0;v<=mx;v+=st) s+=`<line x1="${L}" x2="${W-Rm}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="${v?0.6:1}"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${f(v)}</text>`;
   SL.forEach((d,i)=>{const cx=L+gw*i+gw/2, x0=cx-(A.length*(bw+2)-2)/2;
     s+=`<text x="${cx}" y="${H-26}" text-anchor="middle">${d}</text><text x="${cx}" y="${H-12}" text-anchor="middle">${slotDate(i)}</text>`;
     A.forEach((a,j)=>{const v=a.v[i]; if(v==null||v<=0)return; const h=Math.max(1,y(0)-y(v)), r=Math.min(4,h,bw/2), bx=x0+j*(bw+2);
@@ -204,8 +203,9 @@ function byDay(u){
   document.getElementById('byTitle').textContent='Early votes taken by day: '+u.name;
   document.getElementById('bySub').textContent='In-person early votes each day of the two weeks before election day, lined up by weekday. Dates shown are the 2026 dates.'+(u.level=='state'?'':' 2018 is only available statewide.')+estNote(u);
   document.getElementById('byLeg').innerHTML=A.map(a=>`<span><i style="background:${a.c}"></i>${a.n}</span>`).join('');
-  document.getElementById('byTab').innerHTML='<thead><tr><th>Year</th>'+SL.map((d,i)=>`<th>${d}<br>${slotDate(i)}</th>`).join('')+'<th>Total</th></tr></thead><tbody>'+
-    A.map(a=>`<tr><td>${a.n}</td>`+a.v.map(v=>`<td>${v==null?'':f(v)}</td>`).join('')+`<td class="rev">${f(sum(a.v.map(v=>v||0)))}</td></tr>`).join('')+'</tbody>';
+  const tb=document.getElementById('byTab'); tb.style.width=W+'px';
+  tb.innerHTML=`<colgroup><col style="width:${L}px">${SL.map(()=>`<col style="width:${gw}px">`).join('')}<col style="width:${Rm}px"></colgroup>`+'<thead><tr><th>Year</th>'+SL.map((d,i)=>`<th style="text-align:center">${d}<br>${slotDate(i)}</th>`).join('')+'<th>Total</th></tr></thead><tbody>'+
+    A.map(a=>`<tr><td>${a.n.replace(' (estimated)',' (est.)')}</td>`+a.v.map(v=>`<td style="text-align:center">${v==null?'':f(v)}</td>`).join('')+`<td class="rev">${f(sum(a.v.map(v=>v||0)))}</td></tr>`).join('')+'</tbody>';
 }
 let tab=1;
 function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.getElementById('p1b').hidden=n!=1; document.getElementById('p2').hidden=n!=2;
