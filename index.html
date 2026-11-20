@@ -8,9 +8,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,600..800&family=Public+Sans:wght@400;500;600&display=swap">
 <style>
 :root { --bg:#eef1f3; --card:#fbfcfc; --ink:#18222c; --muted:#5b6874; --line:#d5dce1; --accent:#1f5f73; --hero:#163f4c; --heroink:#f2f7f8;
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --track:#e3e8eb; --hl:#e9f1f4; }
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#6b3fb8; --track:#e3e8eb; --hl:#e9f1f4; }
 @media (prefers-color-scheme: dark) { :root { --bg:#11171c; --card:#172027; --ink:#e5ebef; --muted:#98a6b1; --line:#2b3741; --accent:#7fc3d6; --hero:#0d2a33; --heroink:#e5f2f5;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --track:#232e36; --hl:#1d2a33; color-scheme:dark } }
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#a283e6; --track:#232e36; --hl:#1d2a33; color-scheme:dark } }
 * { box-sizing:border-box }
 body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 "Public Sans","Segoe UI",Arial,sans-serif }
 .hero { background:var(--hero); color:var(--heroink) }
@@ -173,32 +173,53 @@ function series(u){ // per slot: daily votes and running % of enrolment
 function sers(u,S,kind){const a=[{n:'2026',c:'var(--s1)',v:kind=='c'?S.c26:S.d26},{n:S.act?'2022':'2022 (estimated)',c:'var(--s2)',v:kind=='c'?S.c22:S.d22}];
   if(S.st)a.push({n:'2018',c:'var(--s3)',v:kind=='c'?S.c18:S.d18}); return a;}
 const estNote=u=>u.level=='state'?'':u.d22?` The 2022 line uses VEC daily figures for ${u.name} saved during the 2022 campaign. 18 to 21 Nov 2022 are missing, so that stretch is split in the statewide pattern.`:` The 2022 line is an estimate: ${u.name}'s 2022 early vote total spread across the days in the statewide pattern.`;
-function projC(u,S){ // dashed 2026 projection: from the latest figure to the revised early vote estimate, spread over the remaining days in the usual day pattern
-  const last=M.dates[M.dates.length-1], s0=S.c26.reduce((a,v,i)=>v!=null?i:a,-1); if(s0<0)return null;
+function cum26(u,arr,den){ // running total by slot (votes before the first slot fold into it), as % of den
+  const v=Array(NS).fill(null); let run=0, lastS=-1;
+  M.dates.forEach((d,i)=>{run+=arr[i]; const s=slotOf(d); if(s>=0&&s<NS){v[s]=100*run/den; lastS=s;} else if(s<0){v[0]=100*run/den;} });
+  for(let s=1;s<=lastS;s++) if(v[s]==null) v[s]=v[s-1];
+  return {v,lastS};
+}
+function projLine(c,target,den){ // dashed projection from the latest figure to the target, spread over the remaining early voting days in the usual pattern
+  const last=M.dates[M.dates.length-1], s0=c.lastS; if(s0<0)return null;
   const rest=M.evdays.map((d,i)=>[d,M.profile[i]]).filter(([d])=>d>last); if(!rest.length)return null;
-  const tot=rest.reduce((a,[,p])=>a+p,0), left=Math.max(0,u.revEarly-u.ev.reduce((a,b)=>a+b,0)), v=Array(NS).fill(null);
-  let run=S.c26[s0]; v[s0]=run; const m={}; rest.forEach(([d,p])=>m[slotOf(d)]=p);
-  for(let i=s0+1;i<NS;i++){ run+=m[i]?100*left*m[i]/tot/u.enrol:0; v[i]=run; }
-  return {n:'2026 projected',c:'var(--s1)',v,dash:1};
+  const tot=rest.reduce((a,[,p])=>a+p,0), cur=c.v[s0], left=Math.max(0,100*target/den-cur), v=Array(NS).fill(null), m={};
+  rest.forEach(([d,p])=>m[slotOf(d)]=p); let run=cur; v[s0]=run;
+  for(let i=s0+1;i<NS;i++){ run+=m[i]?left*m[i]/tot:0; v[i]=run; }
+  return v;
 }
 function lineChart(u){
-  const S=series(u), A=sers(u,S,'c'); {const pj=projC(u,S); if(pj)A.splice(1,0,pj);} const el=document.getElementById('line'), W=Math.max(640,Math.min(1100,el.parentNode.clientWidth||800)), H=300, L=44, Rm=118, B=44, T=14;
-  const mx=Math.max(...A.flatMap(a=>a.v.filter(v=>v!=null)))*1.08||1, x=i=>L+(W-L-Rm)*i/(NS-1), y=v=>T+(H-T-B)*(1-v/mx), st=[1,2,5,10,20].find(s=>mx/s<=6);
-  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block" role="img" aria-label="Running in-person early vote share by day">`;
-  for(let v=0;v<=mx;v+=st) s+=`<line x1="${L}" x2="${W-Rm}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="${v?0.6:1}"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}%</text>`;
+  const S=series(u), T26=u.T, st=u.level=='state';
+  const ev=cum26(u,u.ev,T26), pr=cum26(u,u.pr,T26), both={v:ev.v.map((x,i)=>x==null?null:x+(pr.v[i]||0)),lastS:ev.lastS};
+  const fe=ev.v.findIndex(x=>x>0); for(let i=0;i<fe;i++){ev.v[i]=null;both.v[i]=null;}
+  const fp=pr.v.findIndex(x=>x>0); for(let i=0;i<fp;i++)pr.v[i]=null;
+  const tgtE=u.revEarly, tgtP=u.postalRev;
+  const v22=st?HH.c22.map(x=>x*u.enrol22/u.votes22):S.c22.map(x=>x*u.enrol22/u.votes22);
+  const C4='var(--s4)';
+  const A=[
+    {n:'2026 early + postal',c:C4,v:both.v,lab:0},{n:'2026 early + postal projected',c:C4,v:projLine(both,tgtE+tgtP,T26),dash:1,lab:'Early + postal'},
+    {n:'2026 in-person early',c:'var(--s1)',v:ev.v,lab:0},{n:'2026 in-person projected',c:'var(--s1)',v:projLine(ev,tgtE,T26),dash:1,lab:'In-person'},
+    {n:'2026 postal',c:'var(--s3)',v:pr.v,lab:0},{n:'2026 postal projected',c:'var(--s3)',v:projLine(pr,tgtP,T26),dash:1,lab:'Postal'},
+    {n:S.act?'2022 in-person early':'2022 in-person early (estimated)',c:'var(--s2)',v:v22,lab:S.act?'2022 in-person':'2022 in-person est.'}].filter(a=>a.v&&a.v.some(x=>x!=null));
+  const el=document.getElementById('line'), W=Math.max(640,Math.min(1100,el.parentNode.clientWidth||800)), H=320, L=44, Rm=150, B=44, T=14;
+  const mx=Math.max(...A.flatMap(a=>a.v.filter(v=>v!=null)))*1.08||1, x=i=>L+(W-L-Rm)*i/(NS-1), y=v=>T+(H-T-B)*(1-v/mx), stp=[1,2,5,10,20].find(s=>mx/s<=6);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block" role="img" aria-label="Running share of expected votes cast early and by post">`;
+  for(let v=0;v<=mx;v+=stp) s+=`<line x1="${L}" x2="${W-Rm}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="${v?0.6:1}"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}%</text>`;
   SL.forEach((d,i)=>{s+=`<text x="${x(i)}" y="${H-26}" text-anchor="middle">${d}</text><text x="${x(i)}" y="${H-12}" text-anchor="middle">${slotDate(i)}</text>`;});
   const ends=[];
   A.forEach(a=>{const pts=a.v.map((v,i)=>v==null?null:[x(i),y(v)]).filter(Boolean); if(!pts.length)return;
-    s+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${a.c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${a.dash?' stroke-dasharray="6 5" opacity="0.85"':''}/>`;
-    const e=pts[pts.length-1]; s+=`<circle cx="${e[0]}" cy="${e[1]}" r="4" fill="${a.c}" stroke="var(--card)" stroke-width="2"/>`;
-    const lv=a.v.filter(v=>v!=null).pop(); ends.push({x:e[0],y:e[1],t:`${a.n.replace(' (estimated)',' est.').replace(' projected',' proj.')}  ${lv.toFixed(1)}%`});});
+    s+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${a.c}" stroke-width="${a.c==C4?2.5:2}" stroke-linejoin="round" stroke-linecap="round"${a.dash?' stroke-dasharray="6 5" opacity="0.85"':''}/>`;
+    const e=pts[pts.length-1]; s+=`<circle cx="${e[0]}" cy="${e[1]}" r="${a.lab?4:3}" fill="${a.c}" stroke="var(--card)" stroke-width="2"/>`;
+    if(a.lab){const lv=a.v.filter(v=>v!=null).pop(); ends.push({x:e[0],y:e[1],t:`${a.lab}  ${lv.toFixed(0)}%`});}});
   ends.sort((a,b)=>a.y-b.y).forEach((e,i,arr)=>{ if(i&&e.y-arr[i-1].y2<14)e.y2=arr[i-1].y2+14; else e.y2=e.y; s+=`<text class="val" x="${e.x+9}" y="${e.y2+4}">${e.t}</text>`;});
-  SL.forEach((d,i)=>{s+=`<rect x="${x(i)-(W-L-Rm)/(NS-1)/2}" y="${T}" width="${(W-L-Rm)/(NS-1)}" height="${H-T-B}" fill="transparent" data-tip="<b>${d} ${slotDate(i)}</b> (2026 dates)${A.map(a=>'<br>'+a.n+': '+(a.v[i]==null?'no figure':a.v[i].toFixed(1)+'%')).join('')}"/>`;});
+  SL.forEach((d,i)=>{s+=`<rect x="${x(i)-(W-L-Rm)/(NS-1)/2}" y="${T}" width="${(W-L-Rm)/(NS-1)}" height="${H-T-B}" fill="transparent" data-tip="<b>${d} ${slotDate(i)}</b> (2026 dates)${A.filter(a=>a.v[i]!=null).map(a=>'<br>'+a.n+': '+a.v[i].toFixed(1)+'%').join('')}"/>`;});
   el.innerHTML=s+'</svg>';
-  document.getElementById('lnTitle').textContent=u.name+' progressive in-person vote share';
-  document.getElementById('lnSub').textContent='Running total of in-person early votes as a share of enrolment, by day of the two weeks before election day. In 2018 and 2022 early voting ran for the full two weeks. In 2026 it opened on the first Wednesday. The dashed line projects 2026 to our revised early vote estimate, spread over the remaining days in the usual pattern.'+estNote(u);
-  document.getElementById('lnLeg').innerHTML=A.map(a=>`<span><i class="ln" style="border-color:${a.c}${a.dash?';border-top-style:dashed':''}"></i>${a.n}</span>`).join('');
+  const pre=(tgtE+tgtP)/T26;
+  document.getElementById('lnTitle').textContent=u.name+' progressive early and postal vote share';
+  document.getElementById('lnSub').textContent=`Running total of votes cast as a share of the votes we expect in total, by day of the two weeks before election day. Solid lines are votes so far; dashed lines project to our revised estimates in the usual day pattern. On those estimates about ${Math.round(100*pre)}% of ${u.name}'s votes will be cast early or by post, leaving about ${Math.round(100*(1-pre))}% for election day (ordinary votes plus absent and provisional votes). Postal votes keep arriving until the Friday after election day, so the postal line ends at its final expected level. 2022 is in-person early votes as a share of 2022 votes; in 2022 early voting ran for the full two weeks.`+estNote(u);
+  const leg=[['2026 early + postal',C4],['2026 in-person early','var(--s1)'],['2026 postal','var(--s3)'],[S.act?'2022 in-person early':'2022 in-person early (estimated)','var(--s2)']];
+  document.getElementById('lnLeg').innerHTML=leg.map(([n,c])=>`<span><i class="ln" style="border-color:${c}"></i>${n}</span>`).join('')+`<span><i class="ln" style="border-color:var(--muted);border-top-style:dashed"></i>projected</span>`;
 }
+
 function byDay(u){
   const S=series(u), A=sers(u,S,'d'), el=document.getElementById('byday'), W=Math.max(1000,Math.min(1150,el.parentNode.clientWidth||1000)), H=300, L=124, Rm=84, B=44, T=14;
   const mx=Math.max(...A.flatMap(a=>a.v.filter(v=>v!=null)))*1.08||1, gw=(W-L-Rm)/NS, bw=Math.min(22,(gw-12)/A.length-2), y=v=>T+(H-T-B)*(1-v/mx);
