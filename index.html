@@ -122,7 +122,7 @@ const M=DATA.meta, U=DATA.units, f=n=>n==null?'–':Math.round(n).toLocaleString
 const sum=a=>a.reduce((x,y)=>x+y,0), dl=d=>new Date(d+'T00:00').toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
 const last=M.dates.length-1;
 U.forEach(u=>{u.evT=sum(u.ev);u.prT=sum(u.pr);u.pvaT=sum(u.pva)-sum(u.can);u.evL=u.ev[last];
-  u.voted=(u.evT+u.prT)/u.T; u.prior=u.modelEarly; u.prog=u.evT/u.revEarly; u.revShare=u.revEarly/u.T;});
+  u.voted=(u.evT+u.prT)/u.T; u.prior=u.modelEarly; u.prog=u.evT/u.revEarly; u.revShare=u.revEarly/u.T; u.ordShare=u.revOrd/u.T;});
 let scope='Victoria', mode='district', sortK='name', sortD=1, open=null;
 const sel=document.getElementById('scope');
 [['Victoria','All of Victoria']].concat(U.filter(u=>u.level=='region').map(u=>[u.name,u.name])).forEach(([v,t])=>sel.add(new Option(t,v)));
@@ -214,8 +214,8 @@ function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.ge
 document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2);
 const COLS=[['name','',0],['evL','Latest day',1],['evT','Total',0],['pvaT','Applications',1],['prT','Returned',0],['postalRev','Revised<br>estimate',0],['T','Expected<br>total votes',1],['voted','Share<br>already voted',0],
   ['revEarly','Revised',1],['prog','Cast so far',0],['revShare','Share of<br>all votes',0],
-  ['revOrd','Revised',1]];
-function cell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='voted'||k=='revShare')return pc(v);
+  ['revOrd','Revised',1],['ordShare','Share of<br>all votes',0]];
+function cell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='voted'||k=='revShare'||k=='ordShare')return pc(v);
   if(k=='prog')return pc(v)+`<span class="meter"><i style="width:${Math.min(100,100*v)}%"></i></span>`; return f(v);}
 function rowHtml(u,cls){return `<tr class="${cls}" data-n="${u.name}">`+COLS.map(c=>`<td class="${c[2]?'g':''} ${c[0]=='revEarly'||c[0]=='revOrd'||c[0]=='postalRev'?'rev':''}">${cell(u,c[0])}</td>`).join('')+'</tr>';}
 function detail(u){
@@ -235,7 +235,7 @@ function table(){
   let rows=U.filter(u=>u.level==mode&&(scope=='Victoria'||u.region==scope)&&(!q||u.name.toLowerCase().includes(q)));
   rows.sort((a,b)=>sortK=='name'?sortD*a.name.localeCompare(b.name):sortD*(((a[sortK]??-1)-(b[sortK]??-1))));
   const top=U.find(u=>u.name==scope);
-  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="3">Postal votes</th><th class="g" colspan="2">Total votes</th><th class="g" colspan="3">In-person early vote estimate</th><th class="g">Election-day<br>ordinary votes</th></tr><tr>`+
+  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="3">Postal votes</th><th class="g" colspan="2">Total votes</th><th class="g" colspan="3">In-person early vote estimate</th><th class="g" colspan="2">Election-day<br>ordinary votes</th></tr><tr>`+
     COLS.map(c=>`<th data-k="${c[0]}" class="${c[2]?'g':''}">${c[0]=='name'?(mode=='district'?'District':'Region'):c[1]}${sortK==c[0]?(sortD>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>';
   h+=rowHtml(top,'row agg'+(open==top.name?' open':'')); if(open==top.name)h+=detail(top);
   rows.forEach(u=>{h+=rowHtml(u,'row'+(open==u.name?' open':'')); if(open==u.name)h+=detail(u);});
