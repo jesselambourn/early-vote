@@ -32,7 +32,7 @@ button.tg { cursor:pointer } button.tg[aria-pressed=true] { background:var(--acc
 .tile .n { color:var(--muted); font-size:.85rem }
 .scroll { overflow-x:auto }
 table { border-collapse:collapse; width:100%; font-size:.86rem; font-variant-numeric:tabular-nums }
-th, td { padding:6px 8px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap }
+th, td { padding:6px 5px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap }
 th:first-child, td:first-child { text-align:left; position:sticky; left:0; background:var(--card) }
 thead th { color:var(--muted); font-weight:600; font-size:.76rem; vertical-align:bottom }
 thead tr.grp th { text-align:center; border-bottom:none; color:var(--ink); text-transform:uppercase; letter-spacing:.05em; font-size:.7rem }
@@ -122,7 +122,7 @@ const M=DATA.meta, U=DATA.units, f=n=>n==null?'–':Math.round(n).toLocaleString
 const sum=a=>a.reduce((x,y)=>x+y,0), dl=d=>new Date(d+'T00:00').toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
 const last=M.dates.length-1;
 U.forEach(u=>{u.evT=sum(u.ev);u.prT=sum(u.pr);u.pvaT=sum(u.pva)-sum(u.can);u.evL=u.ev[last];
-  u.voted=(u.evT+u.prT)/u.T; u.prior=u.modelEarly; u.prog=u.evT/u.revEarly; u.revShare=u.revEarly/u.T; u.ordShare=u.revOrd/u.T;});
+  u.voted=(u.evT+u.prT)/u.T; u.prior=u.modelEarly; u.prog=u.evT/u.revEarly; u.revShare=u.revEarly/u.T; u.ordShare=u.revOrd/u.T; u.edAll=Math.max(0,u.T-u.revEarly-u.postalRev); u.edShare=u.edAll/u.T;});
 let scope='Victoria', mode='district', sortK='name', sortD=1, open=null;
 const sel=document.getElementById('scope');
 [['Victoria','All of Victoria']].concat(U.filter(u=>u.level=='region').map(u=>[u.name,u.name])).forEach(([v,t])=>sel.add(new Option(t,v)));
@@ -231,10 +231,10 @@ function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.ge
 document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2);
 const COLS=[['name','',0],['evL','Latest day',1],['evT','Total',0],['postalRev','Revised<br>estimate',1],['T','Expected<br>total votes',1],['voted','Share<br>already voted',0],
   ['revEarly','Revised',1],['prog','Cast so far',0],['revShare','Share of<br>all votes',0],
-  ['revOrd','Revised',1],['ordShare','Share of<br>all votes',0]];
-function cell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='voted'||k=='revShare'||k=='ordShare')return pc(v);
+  ['edAll','All<br>votes',1],['edShare','Share of<br>all votes',0],['revOrd','Ordinary<br>votes',0],['ordShare','Ordinary<br>share',0]];
+function cell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='voted'||k=='revShare'||k=='ordShare'||k=='edShare')return pc(v);
   if(k=='prog')return pc(v)+`<span class="meter"><i style="width:${Math.min(100,100*v)}%"></i></span>`; return f(v);}
-function rowHtml(u,cls){return `<tr class="${cls}" data-n="${u.name}">`+COLS.map(c=>`<td class="${c[2]?'g':''} ${c[0]=='revEarly'||c[0]=='revOrd'||c[0]=='postalRev'?'rev':''}">${cell(u,c[0])}</td>`).join('')+'</tr>';}
+function rowHtml(u,cls){return `<tr class="${cls}" data-n="${u.name}">`+COLS.map(c=>`<td class="${c[2]?'g':''} ${c[0]=='revEarly'||c[0]=='edAll'||c[0]=='postalRev'?'rev':''}">${cell(u,c[0])}</td>`).join('')+'</tr>';}
 function detail(u){
   let a='<table><thead><tr><th>Day</th><th>Early votes</th><th>Running total</th><th>Postal returned</th><th>Running total</th><th>Postal applications</th><th>Running total</th></tr></thead><tbody>',e=0,p=0,v=0;
   M.dates.forEach((d,i)=>{e+=u.ev[i];p+=u.pr[i];v+=u.pva[i]-u.can[i];a+=`<tr><td>${dl(d)}</td><td>${f(u.ev[i])}</td><td>${f(e)}</td><td>${f(u.pr[i])}</td><td>${f(p)}</td><td>${f(u.pva[i]-u.can[i])}</td><td>${f(v)}</td></tr>`;});
@@ -252,7 +252,7 @@ function table(){
   let rows=U.filter(u=>u.level==mode&&(scope=='Victoria'||u.region==scope)&&(!q||u.name.toLowerCase().includes(q)));
   rows.sort((a,b)=>sortK=='name'?sortD*a.name.localeCompare(b.name):sortD*(((a[sortK]??-1)-(b[sortK]??-1))));
   const top=U.find(u=>u.name==scope);
-  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="1">Postal votes</th><th class="g" colspan="2">Total votes</th><th class="g" colspan="3">In-person early vote estimate</th><th class="g" colspan="2">Election-day<br>ordinary votes</th></tr><tr>`+
+  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="1">Postal votes</th><th class="g" colspan="2">Total votes</th><th class="g" colspan="3">In-person early vote estimate</th><th class="g" colspan="4">Election-day votes</th></tr><tr>`+
     COLS.map(c=>`<th data-k="${c[0]}" class="${c[2]?'g':''}">${c[0]=='name'?(mode=='district'?'District':'Region'):c[1]}${sortK==c[0]?(sortD>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>';
   h+=rowHtml(top,'row agg'+(open==top.name?' open':'')); if(open==top.name)h+=detail(top);
   rows.forEach(u=>{h+=rowHtml(u,'row'+(open==u.name?' open':'')); if(open==u.name)h+=detail(u);});
@@ -284,6 +284,7 @@ document.getElementById('notes').innerHTML=[
  `<b>Original early vote estimates.</b> VEC: the VEC's planning estimates for each early voting centre (3 Nov), added up by the district the centre sits in. They count everyone expected at those centres, including voters from neighbouring districts, so districts with big hub centres (Melbourne, Dandenong) look far higher than their own voters' early vote. Ours: our own model, for the 22 Northern and Western Metro districts only.`,
  `<b>Revised early vote estimate</b> blends a starting estimate with the pace so far. The starting estimate grows each district's 2022 early vote share by the same fraction of its remaining gap to 75%, so districts that already voted early heavily in 2022 (St Albans, Melton) grow less. Statewide it comes to about 57% of votes, up from 49% in 2022 (the VEC plans for about 60%). The pace uses the usual shape of a nine-day early voting period, taken from the VEC's past early voting trends: about 9% of early votes on day one, rising to about 18% on the last Friday. Each district's pace is then adjusted for how fast it started in 2022: districts that front-loaded in 2022 (St Albans, Dandenong, Melton) usually still start a bit faster, so their early votes so far count for a little less. About a third of the 2022 difference carried over, and the adjustment fades as voting goes on. The pace counts for more each day. Today it counts for ${Math.round(100*M.w)}%.`,
  `<b>Revised postal vote estimate</b> is postal vote applications (net of cancellations, including general postal voters) times ${Math.round(100*M.ret)}%, the share of applications that became counted postal votes in 2022.`,
+ `<b>Election-day votes, all votes</b> are the expected total votes less the revised early and postal estimates. They include absent votes (people voting outside their own district) and provisional votes.`,
  `<b>Revised election-day ordinary votes</b> are the expected total votes, less the revised early and postal estimates, less the 2022 share of absent and provisional votes. Each voting centre keeps its share of its district (our booth model's share where we have one, otherwise the VEC's).`,
  `<b>2018 and 2022 comparisons</b> use the statewide daily figures from Antony Green's 2022 early vote tracking post. District and region lines for 2022 use VEC district figures saved during the 2022 campaign (14 to 17 and 22 to 24 Nov; 18 to 21 Nov are split in the statewide pattern, and the last day is the 2022 result less the 24 Nov total).`,
  `These are estimates, and early in the voting period they move a lot from day to day.`].map(x=>'<li>'+x+'</li>').join('');
