@@ -77,7 +77,7 @@ svg text { fill:var(--muted); font-size:11px } svg .val { fill:var(--ink); font-
     <input type="search" id="q" placeholder="Find a district">
   </div>
   <div class="tiles" id="tiles"></div>
-  <div class="tabs" role="tablist"><button role="tab" id="t1" aria-selected="true">Overview</button><button role="tab" id="t2" aria-selected="false">Votes by day</button></div>
+  <div class="tabs" role="tablist"><button role="tab" id="t1" aria-selected="true">Overview</button><button role="tab" id="t2" aria-selected="false">Votes by day</button><button role="tab" id="t3" aria-selected="false">VEC estimates vs projection</button></div>
 <div id="p1">
   <div class="card">
     <h2 id="lnTitle"></h2>
@@ -99,6 +99,13 @@ svg text { fill:var(--muted); font-size:11px } svg .val { fill:var(--ink); font-
     <p class="sub">Early votes recorded by the VEC each day. The orange line shows the daily pace needed to reach the original estimate.</p>
     <div class="legend"><span><i style="background:var(--s1)"></i>Early votes that day</span><span><i class="e"></i>Pace for the original estimate</span></div>
     <div class="scroll"><div id="chart"></div></div>
+  </div>
+</div>
+<div id="p3" hidden>
+  <div class="card">
+    <h2 id="cmpTitle"></h2>
+    <p class="sub">The VEC's original planning estimates against our current projection. Early votes are in-person early votes, and election-day votes are ordinary votes (the VEC's estimate covers ordinary votes only). Positive differences mean we now project more votes than the VEC planned for. The VEC's district early figures add up its centres by the district they sit in, so they include voters from neighbouring districts. Districts with big hub centres (Melbourne, Richmond) therefore look further under than their own voters really are. Region and state totals are not affected. Click a column heading to sort.</p>
+    <div class="scroll"><table id="cmp"></table></div>
   </div>
 </div>
 <div id="p1b">
@@ -228,9 +235,27 @@ function byDay(u){
     A.map(a=>`<tr><td>${a.n.replace(' (estimated)',' (est.)')}</td>`+a.v.map(v=>`<td style="text-align:center">${v==null?'':f(v)}</td>`).join('')+`<td class="rev">${f(sum(a.v.map(v=>v||0)))}</td></tr>`).join('')+'</tbody>';
 }
 let tab=1;
-function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.getElementById('p1b').hidden=n!=1; document.getElementById('p2').hidden=n!=2;
-  document.getElementById('t1').setAttribute('aria-selected',n==1); document.getElementById('t2').setAttribute('aria-selected',n==2); draw();}
-document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2);
+function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.getElementById('p1b').hidden=n!=1; document.getElementById('p2').hidden=n!=2; document.getElementById('p3').hidden=n!=3;
+  [1,2,3].forEach(i=>document.getElementById('t'+i).setAttribute('aria-selected',n==i)); draw();}
+document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2); document.getElementById('t3').onclick=()=>setTab(3);
+U.forEach(u=>{u.dE=u.revEarly-u.vecEarly; u.dO=u.revOrd-u.vecOrd; u.pE=u.vecEarly?u.dE/u.vecEarly:null; u.pO=u.vecOrd?u.dO/u.vecOrd:null;});
+const CC=[['name','',0],['vecEarly','VEC original',1],['revEarly','Projection',0],['vecOrd','VEC original',1],['revOrd','Projection',0],['dE','Early',1],['dO','Election day',0],['pE','Early',1],['pO','Election day',0]];
+let cK='name',cD=1;
+const sg=v=>v==null?'–':(v>0?'+':v<0?'−':'')+f(Math.abs(v)), sp=v=>v==null||!isFinite(v)?'–':(v>0?'+':v<0?'−':'')+(100*Math.abs(v)).toFixed(1)+'%';
+function ccell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='dE'||k=='dO')return sg(v); if(k=='pE'||k=='pO')return sp(v); return f(v);}
+function cmpTable(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  let rows=U.filter(u=>u.level==mode&&(scope=='Victoria'||u.region==scope)&&(!q||u.name.toLowerCase().includes(q)));
+  rows.sort((a,b)=>cK=='name'?cD*a.name.localeCompare(b.name):cD*(((a[cK]??-1e9)-(b[cK]??-1e9))));
+  const top=U.find(u=>u.name==scope);
+  const r=(u,c)=>`<tr class="${c}">`+CC.map(x=>`<td class="${x[2]?'g':''} ${x[0]=='revEarly'||x[0]=='revOrd'?'rev':''}">${ccell(u,x[0])}</td>`).join('')+'</tr>';
+  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="2">Election-day votes</th><th class="g" colspan="2">Projection minus VEC (votes)</th><th class="g" colspan="2">Projection minus VEC (%)</th></tr><tr>`+
+    CC.map(c=>`<th data-k="${c[0]}" class="${c[2]?'g':''}">${c[0]=='name'?(mode=='district'?'District':'Region'):c[1]}${cK==c[0]?(cD>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>';
+  h+=r(top,'agg'); rows.forEach(u=>h+=r(u,''));
+  document.getElementById('cmp').innerHTML=h+'</tbody>';
+  document.getElementById('cmpTitle').textContent='VEC estimates vs our projection: '+(mode=='district'?'districts':'regions')+', '+(scope=='Victoria'?'all of Victoria':scope);
+}
+document.getElementById('cmp').onclick=e=>{const th=e.target.closest('th[data-k]'); if(!th)return; const k=th.dataset.k; if(cK==k)cD=-cD; else{cK=k;cD=k=='name'?1:-1;} cmpTable();};
 const COLS=[['name','',0],['evL','Latest day',1],['evT','Total',0],['postalRev','Revised<br>estimate',1],['T','Expected<br>total votes',1],['voted','Share<br>already voted',0],
   ['revEarly','Revised',1],['prog','Cast so far',0],['revShare','Share of<br>all votes',0],
   ['edAll','All<br>votes',1],['edShare','Share of<br>all votes',0],['revOrd','Ordinary<br>votes',0],['ordShare','Ordinary<br>share',0]];
@@ -267,12 +292,12 @@ function fillDist(){const ds=document.getElementById('dist'); ds.innerHTML='';
   ds.add(new Option(scope=='Victoria'?'All districts':'All of '+scope,''));
   U.filter(u=>u.level=='district'&&(scope=='Victoria'||u.region==scope)).sort((a,b)=>a.name.localeCompare(b.name)).forEach(u=>ds.add(new Option(u.name,u.name)));
   ds.value=(U.find(u=>u.name==open)||{}).level=='district'?open:'';}
-function draw(){fillDist(); tiles(cur()); if(tab==1){lineChart(cur()); table();} else {byDay(cur()); chart(cur());}}
+function draw(){fillDist(); tiles(cur()); if(tab==1){lineChart(cur()); table();} else if(tab==2){byDay(cur()); chart(cur());} else cmpTable();}
 function btn(){document.getElementById('bR').setAttribute('aria-pressed',mode=='region');document.getElementById('bD').setAttribute('aria-pressed',mode=='district');}
 sel.onchange=()=>{scope=sel.value; open=null; if(scope!='Victoria'&&mode=='region'){mode='district';btn();} draw();};
 document.getElementById('bR').onclick=()=>{mode='region';scope='Victoria';sel.value=scope;open=null;btn();draw();};
 document.getElementById('bD').onclick=()=>{mode='district';open=null;btn();draw();};
-document.getElementById('q').oninput=table;
+document.getElementById('q').oninput=()=>tab==3?cmpTable():table();
 document.getElementById('tb').onclick=e=>{const th=e.target.closest('th[data-k]'); if(th){const k=th.dataset.k; if(sortK==k)sortD=-sortD; else{sortK=k;sortD=k=='name'?1:-1;} table(); return;}
   if(e.target.closest('tr.detail'))return;
   const tr=e.target.closest('tr.row'); if(tr){open=open==tr.dataset.n?null:tr.dataset.n; draw();}};
