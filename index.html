@@ -77,7 +77,7 @@ svg text { fill:var(--muted); font-size:11px } svg .val { fill:var(--ink); font-
     <input type="search" id="q" placeholder="Find a district">
   </div>
   <div class="tiles" id="tiles"></div>
-  <div class="tabs" role="tablist"><button role="tab" id="t1" aria-selected="true">Overview</button><button role="tab" id="t2" aria-selected="false">Votes by day</button><button role="tab" id="t3" aria-selected="false">VEC estimates vs projection</button></div>
+  <div class="tabs" role="tablist"><button role="tab" id="t1" aria-selected="true">Overview</button><button role="tab" id="t2" aria-selected="false">Votes by day</button><button role="tab" id="t3" aria-selected="false">VEC estimates vs projection</button><button role="tab" id="t4" aria-selected="false">2026 vs 2022</button></div>
 <div id="p1">
   <div class="card">
     <h2 id="lnTitle"></h2>
@@ -108,6 +108,15 @@ svg text { fill:var(--muted); font-size:11px } svg .val { fill:var(--ink); font-
     <p class="sub">For scaling materials ordered from the VEC's estimates. <b>VEC plan</b> is the share of all votes the VEC's venue estimates imply for each kind of voting. The VEC pads every venue, so its estimates are turned into shares of in-person votes, which cancels the padding. It publishes no postal estimate, so its plan is taken to match the 2022 postal share. <b>Projection</b> is our current share. <b>Scale by</b> is how much to scale materials up or down from the VEC-based amount: the projected share divided by the VEC's, so the VEC's built-in margin is kept. Click a column heading to sort.</p>
     <p class="sub"><b>Hub early voting centres.</b> The VEC books everyone expected at most early voting centres to the host district, including voters from next door. So district early figures are skewed for districts with busy central centres (Melbourne, Richmond, Dandenong look over-planned; Eildon, Macedon, Ashwood look under-planned). Region and state rows are reliable. Election-day figures are much less affected.</p>
     <div class="scroll"><table id="cmp"></table></div>
+  </div>
+</div>
+<div id="p4" hidden>
+  <div class="card">
+    <h2 id="yTitle"></h2>
+    <div class="controls" style="margin:6px 0 10px"><label>Region <select id="yReg"></select></label>
+      <button class="tg" id="yV" aria-pressed="true">Votes</button><button class="tg" id="yS" aria-pressed="false">Shares</button></div>
+    <p class="sub">2022 is the final result. 2026 is our current projection (revised early and postal estimates, with election day as the rest of the expected total). Early means in-person early votes. Election day covers all votes cast on the day: ordinary, absent and provisional. Click a column heading to sort.</p>
+    <div class="scroll"><table id="yt"></table></div>
   </div>
 </div>
 <div id="p1b">
@@ -237,9 +246,35 @@ function byDay(u){
     A.map(a=>`<tr><td>${a.n.replace(' (estimated)',' (est.)')}</td>`+a.v.map(v=>`<td style="text-align:center">${v==null?'':f(v)}</td>`).join('')+`<td class="rev">${f(sum(a.v.map(v=>v||0)))}</td></tr>`).join('')+'</tbody>';
 }
 let tab=1;
-function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.getElementById('p1b').hidden=n!=1; document.getElementById('p2').hidden=n!=2; document.getElementById('p3').hidden=n!=3;
-  [1,2,3].forEach(i=>document.getElementById('t'+i).setAttribute('aria-selected',n==i)); draw();}
-document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2); document.getElementById('t3').onclick=()=>setTab(3);
+function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.getElementById('p1b').hidden=n!=1; document.getElementById('p2').hidden=n!=2; document.getElementById('p3').hidden=n!=3; document.getElementById('p4').hidden=n!=4;
+  [1,2,3,4].forEach(i=>document.getElementById('t'+i).setAttribute('aria-selected',n==i)); draw();}
+document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2); document.getElementById('t3').onclick=()=>setTab(3); document.getElementById('t4').onclick=()=>setTab(4);
+U.forEach(u=>{u.y22={E:u.early22,P:u.postal22,D:u.votes22-u.early22-u.postal22,T:u.votes22}; u.y26={E:u.revEarly,P:u.postalRev,D:u.edAll,T:u.T};
+  for(const k of ['E','P','D','T']){u['a'+k]=u.y22[k]; u['b'+k]=u.y26[k]; u['c'+k]=u.y22[k]?u.y26[k]/u.y22[k]-1:null;
+    if(k!='T'){u['s'+k]=u.y22[k]/u.y22.T; u['t'+k]=u.y26[k]/u.y26.T; u['d'+k]=u['t'+k]-u['s'+k];}}});
+let yMode='v', yK='name', yD=1;
+const yr=document.getElementById('yReg');
+[['Victoria','All regions']].concat(U.filter(u=>u.level=='region').map(u=>[u.name,u.name])).forEach(([v,t])=>yr.add(new Option(t,v)));
+yr.onchange=()=>{sel.value=yr.value; sel.onchange();};
+document.getElementById('yV').onclick=()=>{yMode='v';yTable();}; document.getElementById('yS').onclick=()=>{yMode='s';yTable();};
+const pp=v=>v==null||!isFinite(v)?'–':(v>0?'+':v<0?'−':'')+(100*Math.abs(v)).toFixed(1), pt=v=>v==null||!isFinite(v)?'–':(100*v).toFixed(1)+'%';
+function yTable(){ yr.value=scope; document.getElementById('yV').setAttribute('aria-pressed',yMode=='v'); document.getElementById('yS').setAttribute('aria-pressed',yMode=='s');
+  const G=yMode=='v'?[['E','Early'],['P','Postal'],['D','Election day'],['T','Total']]:[['E','Early'],['P','Postal'],['D','Election day']];
+  const C=[['name','',0]]; G.forEach(([k])=>{ if(yMode=='v') C.push(['a'+k,'2022',1],['b'+k,'2026',0],['c'+k,'Change',0]); else C.push(['s'+k,'2022',1],['t'+k,'2026',0],['d'+k,'Change (pts)',0]);});
+  const val=(u,k)=>{const v=u[k]; if(k=='name')return u.name; if(k[0]=='c')return v==null?'–':pp(v)+'%'; if(k[0]=='d')return pp(v); if(k[0]=='s'||k[0]=='t')return pt(v); return f(v);};
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  let rows=U.filter(u=>u.level==mode&&(scope=='Victoria'||u.region==scope)&&(!q||u.name.toLowerCase().includes(q)));
+  if(!C.some(c=>c[0]==yK)) yK='name';
+  rows.sort((a,b)=>yK=='name'?yD*a.name.localeCompare(b.name):yD*(((a[yK]??-1e9)-(b[yK]??-1e9))));
+  const top=U.find(u=>u.name==scope);
+  const r=(u,c)=>`<tr class="${c}">`+C.map(x=>`<td class="${x[2]?'g':''} ${x[0][0]=='b'||x[0][0]=='t'?'rev':''}">${(x[0][0]=='c'||x[0][0]=='d')&&x[0]!='name'?'<b>'+val(u,x[0])+'</b>':val(u,x[0])}</td>`).join('')+'</tr>';
+  let h='<thead><tr class="grp"><th></th>'+G.map(([k,t])=>`<th class="g" colspan="3">${t}${yMode=='s'?' (share of all votes)':''}</th>`).join('')+'</tr><tr>'+
+    C.map(c=>`<th data-k="${c[0]}" class="${c[2]?'g':''}">${c[0]=='name'?(mode=='district'?'District':'Region'):c[1]}${yK==c[0]?(yD>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>';
+  h+=r(top,'agg'); rows.forEach(u=>h+=r(u,''));
+  document.getElementById('yt').innerHTML=h+'</tbody>';
+  document.getElementById('yTitle').textContent='2026 vs 2022: '+(mode=='district'?'districts':'regions')+', '+(scope=='Victoria'?'all of Victoria':scope);
+}
+document.getElementById('yt').onclick=e=>{const th=e.target.closest('th[data-k]'); if(!th)return; const k=th.dataset.k; if(yK==k)yD=-yD; else{yK=k;yD=k=='name'?1:-1;} yTable();};
 U.forEach(u=>{const ip=u.vecEarly+u.vecOrd+(u.vecAbs||0), po=u.postalOrig, rest=u.T-po;
   u.vsE=u.vecEarly/ip*rest/u.T; u.vsP=po/u.T; u.vsD=1-u.vsE-u.vsP; u.nsE=u.revEarly/u.T; u.nsP=u.postalRev/u.T; u.nsD=u.edAll/u.T;
   u.kE=u.nsE/u.vsE-1; u.kP=u.nsP/u.vsP-1; u.kD=u.nsD/u.vsD-1;});
@@ -299,12 +334,12 @@ function fillDist(){const ds=document.getElementById('dist'); ds.innerHTML='';
   ds.add(new Option(scope=='Victoria'?'All districts':'All of '+scope,''));
   U.filter(u=>u.level=='district'&&(scope=='Victoria'||u.region==scope)).sort((a,b)=>a.name.localeCompare(b.name)).forEach(u=>ds.add(new Option(u.name,u.name)));
   ds.value=(U.find(u=>u.name==open)||{}).level=='district'?open:'';}
-function draw(){fillDist(); tiles(cur()); if(tab==1){lineChart(cur()); table();} else if(tab==2){byDay(cur()); chart(cur());} else cmpTable();}
+function draw(){fillDist(); tiles(cur()); if(tab==1){lineChart(cur()); table();} else if(tab==2){byDay(cur()); chart(cur());} else if(tab==3) cmpTable(); else yTable();}
 function btn(){document.getElementById('bR').setAttribute('aria-pressed',mode=='region');document.getElementById('bD').setAttribute('aria-pressed',mode=='district');}
 sel.onchange=()=>{scope=sel.value; open=null; if(scope!='Victoria'&&mode=='region'){mode='district';btn();} draw();};
 document.getElementById('bR').onclick=()=>{mode='region';scope='Victoria';sel.value=scope;open=null;btn();draw();};
 document.getElementById('bD').onclick=()=>{mode='district';open=null;btn();draw();};
-document.getElementById('q').oninput=()=>tab==3?cmpTable():table();
+document.getElementById('q').oninput=()=>tab==3?cmpTable():tab==4?yTable():table();
 document.getElementById('tb').onclick=e=>{const th=e.target.closest('th[data-k]'); if(th){const k=th.dataset.k; if(sortK==k)sortD=-sortD; else{sortK=k;sortD=k=='name'?1:-1;} table(); return;}
   if(e.target.closest('tr.detail'))return;
   const tr=e.target.closest('tr.row'); if(tr){open=open==tr.dataset.n?null:tr.dataset.n; draw();}};
