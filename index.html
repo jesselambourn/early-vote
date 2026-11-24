@@ -105,8 +105,8 @@ svg text { fill:var(--muted); font-size:11px } svg .val { fill:var(--ink); font-
   <div class="card">
     <h2 id="cmpTitle"></h2>
     <div class="controls" style="margin:6px 0 10px"><label>Region <select id="cmpReg"></select></label></div>
-    <p class="sub">For checking how-to-vote card orders. Each row compares the VEC's original planning estimate (3 Nov venues spreadsheet) with our current projection of votes by that district's own voters. Election-day votes are all election-day votes: ordinary plus absent (the VEC's ordinary and absent estimates against our projected election-day total). Positive differences mean we now expect more votes than the VEC planned for. Click a column heading to sort.</p>
-    <p class="sub"><b>Hub early voting centres.</b> The VEC lists most early voting centres under one district and puts all their expected voters there, including voters from neighbouring districts. So central districts with busy hub centres (Melbourne, Richmond) get inflated VEC early figures, and their neighbours get too little. Our projection counts each district's own voters wherever they vote, which is what that district's cards are for. If cards were ordered from the VEC figures, hub districts are over-ordered and their neighbours under-ordered, and some of each neighbour's cards need to go to the hub centres.</p>
+    <p class="sub">For scaling materials ordered from the VEC's estimates. <b>VEC plan</b> is the share of all votes the VEC's venue estimates imply for each kind of voting. The VEC pads every venue, so its estimates are turned into shares of in-person votes, which cancels the padding. It publishes no postal estimate, so its plan is taken to match the 2022 postal share. <b>Projection</b> is our current share. <b>Scale by</b> is how much to scale materials up or down from the VEC-based amount: the projected share divided by the VEC's, so the VEC's built-in margin is kept. Click a column heading to sort.</p>
+    <p class="sub"><b>Hub early voting centres.</b> The VEC books everyone expected at most early voting centres to the host district, including voters from next door. So district early figures are skewed for districts with busy central centres (Melbourne, Richmond, Dandenong look over-planned; Eildon, Macedon, Ashwood look under-planned). Region and state rows are reliable. Election-day figures are much less affected.</p>
     <div class="scroll"><table id="cmp"></table></div>
   </div>
 </div>
@@ -240,11 +240,13 @@ let tab=1;
 function setTab(n){tab=n; document.getElementById('p1').hidden=n!=1; document.getElementById('p1b').hidden=n!=1; document.getElementById('p2').hidden=n!=2; document.getElementById('p3').hidden=n!=3;
   [1,2,3].forEach(i=>document.getElementById('t'+i).setAttribute('aria-selected',n==i)); draw();}
 document.getElementById('t1').onclick=()=>setTab(1); document.getElementById('t2').onclick=()=>setTab(2); document.getElementById('t3').onclick=()=>setTab(3);
-U.forEach(u=>{u.vecED=u.vecOrd+(u.vecAbs||0); u.dE=u.revEarly-u.vecEarly; u.dO=u.edAll-u.vecED; u.pE=u.vecEarly?u.dE/u.vecEarly:null; u.pO=u.vecED?u.dO/u.vecED:null;});
-const CC=[['name','',0],['vecEarly','VEC original',1],['revEarly','Projection',0],['vecED','VEC original',1],['edAll','Projection',0],['dE','Early',1],['dO','Election day',0],['pE','Early',1],['pO','Election day',0]];
+U.forEach(u=>{const ip=u.vecEarly+u.vecOrd+(u.vecAbs||0), po=u.postalOrig, rest=u.T-po;
+  u.vsE=u.vecEarly/ip*rest/u.T; u.vsP=po/u.T; u.vsD=1-u.vsE-u.vsP; u.nsE=u.revEarly/u.T; u.nsP=u.postalRev/u.T; u.nsD=u.edAll/u.T;
+  u.kE=u.nsE/u.vsE-1; u.kP=u.nsP/u.vsP-1; u.kD=u.nsD/u.vsD-1;});
+const CC=[['name','',0],['vsE','VEC plan',1],['nsE','Projection',0],['kE','Scale by',0],['vsP','VEC plan',1],['nsP','Projection',0],['kP','Scale by',0],['vsD','VEC plan',1],['nsD','Projection',0],['kD','Scale by',0]];
 let cK='name',cD=1;
-const sg=v=>v==null?'–':(v>0?'+':v<0?'−':'')+f(Math.abs(v)), sp=v=>v==null||!isFinite(v)?'–':(v>0?'+':v<0?'−':'')+(100*Math.abs(v)).toFixed(1)+'%';
-function ccell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='dE'||k=='dO')return sg(v); if(k=='pE'||k=='pO')return sp(v); return f(v);}
+const sp=v=>v==null||!isFinite(v)?'–':(v>0?'+':v<0?'−':'')+(100*Math.abs(v)).toFixed(0)+'%', s1=v=>v==null||!isFinite(v)?'–':(100*v).toFixed(1)+'%';
+function ccell(u,k){const v=u[k]; if(k=='name')return u.name; if(k[0]=='k')return `<b>${sp(v)}</b>`; return s1(v);}
 const cr=document.getElementById('cmpReg');
 [['Victoria','All regions']].concat(U.filter(u=>u.level=='region').map(u=>[u.name,u.name])).forEach(([v,t])=>cr.add(new Option(t,v)));
 cr.onchange=()=>{sel.value=cr.value; sel.onchange();};
@@ -253,8 +255,8 @@ function cmpTable(){ cr.value=scope;
   let rows=U.filter(u=>u.level==mode&&(scope=='Victoria'||u.region==scope)&&(!q||u.name.toLowerCase().includes(q)));
   rows.sort((a,b)=>cK=='name'?cD*a.name.localeCompare(b.name):cD*(((a[cK]??-1e9)-(b[cK]??-1e9))));
   const top=U.find(u=>u.name==scope);
-  const r=(u,c)=>`<tr class="${c}">`+CC.map(x=>`<td class="${x[2]?'g':''} ${x[0]=='revEarly'||x[0]=='edAll'?'rev':''}">${ccell(u,x[0])}</td>`).join('')+'</tr>';
-  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="2">Early votes</th><th class="g" colspan="2">Election-day votes</th><th class="g" colspan="2">Projection minus VEC (votes)</th><th class="g" colspan="2">Projection minus VEC (%)</th></tr><tr>`+
+  const r=(u,c)=>`<tr class="${c}">`+CC.map(x=>`<td class="${x[2]?'g':''} ${x[0][0]=='n'?'rev':''}">${ccell(u,x[0])}</td>`).join('')+'</tr>';
+  let h=`<thead><tr class="grp"><th></th><th class="g" colspan="3">Early votes (share of all votes)</th><th class="g" colspan="3">Postal votes</th><th class="g" colspan="3">Election-day votes</th></tr><tr>`+
     CC.map(c=>`<th data-k="${c[0]}" class="${c[2]?'g':''}">${c[0]=='name'?(mode=='district'?'District':'Region'):c[1]}${cK==c[0]?(cD>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>';
   h+=r(top,'agg'); rows.forEach(u=>h+=r(u,''));
   document.getElementById('cmp').innerHTML=h+'</tbody>';
