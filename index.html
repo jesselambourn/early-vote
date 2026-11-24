@@ -104,6 +104,7 @@ svg text { fill:var(--muted); font-size:11px } svg .val { fill:var(--ink); font-
 <div id="p3" hidden>
   <div class="card">
     <h2 id="cmpTitle"></h2>
+    <div class="controls" style="margin:6px 0 10px"><label>Region <select id="cmpReg"></select></label></div>
     <p class="sub">The VEC's original planning estimates against our current projection. Early votes are in-person early votes, and election-day votes are ordinary votes (the VEC's estimate covers ordinary votes only). Positive differences mean we now project more votes than the VEC planned for. The VEC's district early figures add up its centres by the district they sit in, so they include voters from neighbouring districts. Districts with big hub centres (Melbourne, Richmond) therefore look further under than their own voters really are. Region and state totals are not affected. Click a column heading to sort.</p>
     <div class="scroll"><table id="cmp"></table></div>
   </div>
@@ -243,7 +244,10 @@ const CC=[['name','',0],['vecEarly','VEC original',1],['revEarly','Projection',0
 let cK='name',cD=1;
 const sg=v=>v==null?'–':(v>0?'+':v<0?'−':'')+f(Math.abs(v)), sp=v=>v==null||!isFinite(v)?'–':(v>0?'+':v<0?'−':'')+(100*Math.abs(v)).toFixed(1)+'%';
 function ccell(u,k){const v=u[k]; if(k=='name')return u.name; if(k=='dE'||k=='dO')return sg(v); if(k=='pE'||k=='pO')return sp(v); return f(v);}
-function cmpTable(){
+const cr=document.getElementById('cmpReg');
+[['Victoria','All regions']].concat(U.filter(u=>u.level=='region').map(u=>[u.name,u.name])).forEach(([v,t])=>cr.add(new Option(t,v)));
+cr.onchange=()=>{sel.value=cr.value; sel.onchange();};
+function cmpTable(){ cr.value=scope;
   const q=document.getElementById('q').value.trim().toLowerCase();
   let rows=U.filter(u=>u.level==mode&&(scope=='Victoria'||u.region==scope)&&(!q||u.name.toLowerCase().includes(q)));
   rows.sort((a,b)=>cK=='name'?cD*a.name.localeCompare(b.name):cD*(((a[cK]??-1e9)-(b[cK]??-1e9))));
