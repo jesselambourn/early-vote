@@ -146,6 +146,7 @@ const sel=document.getElementById('scope');
 [['Victoria','All of Victoria']].concat(U.filter(u=>u.level=='region').map(u=>[u.name,u.name])).forEach(([v,t])=>sel.add(new Option(t,v)));
 document.getElementById('lede').textContent=`Early voting runs Wed 18 to Fri 27 Nov (no voting Sun 22). VEC figures as at ${M.asat||'the latest update'}, covering votes up to ${dl(M.dates[last])}. `+
   (M.done?`${M.done} of 9 early voting days counted.`:'No early voting centre days are in the figures yet. The first day appears in the next update.');
+document.getElementById('lede').insertAdjacentHTML('beforeend',' <a href="booths.html" style="color:inherit">Election-day projections by voting centre →</a>');
 if(M.pending&&M.pending.length){const pe=M.pending; document.getElementById('lede').textContent+=' Newer statewide totals on the VEC page: '+
   pe.map(r=>`${dl(r.date)} ${f(r.early)} early votes and ${f(r.postal)} postal votes returned`).join('; ')+
   `. The VEC's spreadsheet with the district breakdown for ${pe.length>1?'those days':'that day'} is not downloadable yet, so the charts and table below stop at ${dl(M.dates[last])}.`;}
